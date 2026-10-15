@@ -38,17 +38,21 @@ def classify_chunk(text: str) -> str:
     ]):
         return "financial_aid"
 
+    # registration 放在 living 之前：报到入学 chunk 中常顺带提到“宿舍区/食堂”，
+    # 但核心语义仍是报到材料/流程，若先判断 living 会把关键块误分类。
+    if any(keyword in text for keyword in [
+        "报到", "录取", "军训", "体检", "缴费", "一卡通",
+        "校园卡", "激活", "档案", "户口", "迎新",
+        "携带证件", "必带材料", "免冠照片", "身份证", "准考证",
+        "录取通知书", "团员", "团籍", "学籍",
+    ]):
+        return "registration"
+
     if any(keyword in text for keyword in [
         "宿舍", "公寓", "食堂", "餐厅", "餐饮", "水电", "空调", "洗衣", "洗浴",
         "快递", "驿站", "超市", "商超",
     ]):
         return "living"
-
-    if any(keyword in text for keyword in [
-        "报到", "录取", "军训", "体检", "缴费", "一卡通",
-        "校园卡", "激活", "档案", "户口", "迎新",
-    ]):
-        return "registration"
 
     if any(keyword in text for keyword in [
         "课程", "选课", "学分", "教务", "图书馆", "教材", "考试", "培养方案",
