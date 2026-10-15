@@ -1,0 +1,81 @@
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Bundled runtime and local dependencies
+backend/python/
+
+# Backend runtime data
+backend/data/
+backend/logs/
+backend/uploads/
+backend/*.db
+backend/**/*.db
+backend/*.sqlite
+backend/**/*.sqlite
+backend/*.sqlite3
+backend/**/*.sqlite3
+
+# Vector indexes and generated retrieval artifacts
+backend/indexes/
+backend/faiss_scenic_index/
+backend/faq_index.bin
+backend/faq_id_map.npy
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# Generated audio (TTS / ASR temp files)
+*.wav
+*.mp3
+*.pcm
+
+# Local backups / runtime caches (added 2026-10-15)
+*.bak
+*.bak_*
+backend/replay_cache.json
+backend/replay_cache.json.bak*
+backend/knowledge_docs/_backup_lingshan/
