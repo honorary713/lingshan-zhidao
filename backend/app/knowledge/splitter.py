@@ -23,11 +23,21 @@ def _strip_preamble(text: str) -> str:
     return text
 
 
+def _has_living_keywords(text: str) -> bool:
+    """判断是否包含明确的生活服务关键词（餐厅/食堂/快递/超市/洗浴等）。"""
+    return any(keyword in text for keyword in [
+        "餐厅", "食堂", "餐饮", "快递", "驿站", "超市", "商超",
+        "洗浴", "洗衣", "水电", "空调",
+    ])
+
+
 def classify_chunk(text: str) -> str:
     """按校园导览维度给 chunk 打标签。"""
     text = _strip_preamble(text)
 
-    if any(keyword in text for keyword in [
+    # 安全类 chunk 常与宿舍生活混在同一段，若段落中明确出现餐厅/食堂/快递/超市等
+    # 生活服务词，优先按 living 处理，避免"校内餐厅"等关键信息被错标为 safety。
+    if not _has_living_keywords(text) and any(keyword in text for keyword in [
         "诈骗", "安全", "消防", "防骗", "紧急", "报警", "推销", "传销",
         "电信诈骗", "校园贷", "防盗",
     ]):
@@ -40,9 +50,11 @@ def classify_chunk(text: str) -> str:
 
     # registration 放在 living 之前：报到入学 chunk 中常顺带提到“宿舍区/食堂”，
     # 但核心语义仍是报到材料/流程，若先判断 living 会把关键块误分类。
+    # 注意：不将“一卡通/校园卡”作为 registration 的强信号，因为一卡通也大量出现在
+    # 餐饮/生活消费场景中，容易把“住宿与餐饮”chunk 误判为报到。
     if any(keyword in text for keyword in [
-        "报到", "录取", "军训", "体检", "缴费", "一卡通",
-        "校园卡", "激活", "档案", "户口", "迎新",
+        "报到", "录取", "军训", "体检", "缴费",
+        "激活", "档案", "户口", "迎新",
         "携带证件", "必带材料", "免冠照片", "身份证", "准考证",
         "录取通知书", "团员", "团籍", "学籍",
     ]):
