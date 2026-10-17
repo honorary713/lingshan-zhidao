@@ -48,6 +48,16 @@ def classify_chunk(text: str) -> str:
     ]):
         return "financial_aid"
 
+    # service：办事服务与数字校园。用「补卡/圈存」这两个在全库只出现在
+    # “一卡通充值/挂失/补卡”办事指南块的词触发，可一次性把该块（含 校园网/VPN、邮箱、
+    # 证明开具、一卡通充值 等）归到 service，与 planner/tool_schema 的 search_service 对齐；
+    # 不会误伤餐饮块的“充值后消费”(living) 或图书馆借书证挂失(safety) 等块。
+    # 排除含 报到/录取/入学 的块，保护“报到领卡激活”等 registration 块。
+    if not any(r in text for r in ["报到", "录取", "入学", "迎新", "档案", "户口"]) and any(
+        key in text for key in ["补卡", "圈存"]
+    ):
+        return "service"
+
     # registration 放在 living 之前：报到入学 chunk 中常顺带提到“宿舍区/食堂”，
     # 但核心语义仍是报到材料/流程，若先判断 living 会把关键块误分类。
     # 注意：不将“一卡通/校园卡”作为 registration 的强信号，因为一卡通也大量出现在
