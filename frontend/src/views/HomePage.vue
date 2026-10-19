@@ -360,14 +360,14 @@ function onImgError(e) {
 }
 .ticket-body { display: flex; }
 .ticket-main { flex: 1; padding: 18px 20px; }
-.ticket-row { display: flex; gap: 26px; margin-bottom: 10px; }
+.ticket-row { display: flex; gap: 22px; margin-bottom: 10px; }
 .tk {
   font-size: 11px;
   color: #7A8B99;
   letter-spacing: .1em;
   display: block;
 }
-.tv { font-size: 15px; color: #2A3242; font-weight: 600; }
+.tv { font-size: 13px; color: #2A3242; font-weight: 600; white-space: nowrap; }
 .ticket-stub {
   width: 118px;
   border-left: 1.5px dashed #1F3A5F;
