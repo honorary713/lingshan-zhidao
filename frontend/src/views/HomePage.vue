@@ -43,7 +43,7 @@
               <div class="ticket-main">
                 <div class="ticket-row">
                   <div><span class="tk">日期</span><span class="tv">8 月 28 日</span></div>
-                  <div><span class="tk">地点</span><span class="tv">南门迎新点</span></div>
+                  <div><span class="tk">地点</span><span class="tv">中国石油大学（华东）</span></div>
                   <div><span class="tk">首站</span><span class="tv">宿舍安顿</span></div>
                 </div>
                 <div class="ticket-row">
