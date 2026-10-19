@@ -4,7 +4,6 @@ import shutil
 from pathlib import Path
 from models.faq import FAQ
 from database import SessionLocal
-from services.embedding_service import get_embedding
 
 FAQ_INDEX_FILE = Path("./faq_index.bin")
 FAQ_ID_MAP_FILE = Path("./faq_id_map.npy")
@@ -33,16 +32,20 @@ def rebuild_faiss_index():
 
     if not faq_list:
         print("⚠️ 当前无有效FAQ问答，生成空FAQ向量索引")
-        dim = len(get_embedding("测试文本"))
+        from app.knowledge.embedder import embed_query
+        dim = len(embed_query("测试文本"))
         empty_index = faiss.IndexFlatL2(dim)
         _write_faq_index(empty_index, [])
         if not FAQ_INDEX_FILE.exists():
             raise RuntimeError("空索引写入失败，根目录无写入权限")
         return
 
+    from app.knowledge.embedder import embed_query
     question_texts = [item.question for item in faq_list]
     faq_ids = [item.id for item in faq_list]
-    vec_array = np.array([get_embedding(text) for text in question_texts], dtype=np.float32)
+    vec_array = np.array([embed_query(text) for text in question_texts], dtype=np.float32)
+    # 归一化，与 retriever.py / search_faq_vector 保持一致的余弦检索
+    faiss.normalize_L2(vec_array)
 
     dim = vec_array.shape[1]
     index = faiss.IndexFlatL2(dim)

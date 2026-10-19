@@ -17,8 +17,10 @@ _embeddings = None
 # FAQ独立向量库路径（根目录）
 FAQ_INDEX_BIN = Path("./faq_index.bin")
 FAQ_ID_MAP_NPY = Path("./faq_id_map.npy")
-# L2距离相似度阈值，越小越匹配
-FAQ_SIM_THRESHOLD = 0.85
+# L2距离相似度阈值（余弦），越大越严格。0.70 的经验依据：
+# 同一 FAQ 的口语改写约 0.69~1.0，而纯知识库问题与此 FAQ 的余弦<=0.56，
+# 留足余量避免“截胡”知识库问题。FAQ 仅承载非知识库内容，跨主题重合低。
+FAQ_SIM_THRESHOLD = 0.70
 
 
 # ========== 修复：门票固定回答文本（最高优先级）==========
@@ -184,8 +186,8 @@ def check_faq_exact_match(question: str, db: Session):
 
 def search_faq_vector(question: str, db: Session):
     """
-    独立FAQ向量语义检索
-    匹配成功返回FAQ对象，无匹配/异常返回None
+    独立 FAQ 向量语义检索（使用与校园知识库同一套 API embedding）。
+    匹配成功返回 FAQ 对象，无匹配/异常返回 None。
     """
     import faiss
     import numpy as np
@@ -197,17 +199,22 @@ def search_faq_vector(question: str, db: Session):
         # 加载向量库
         index = faiss.read_index(str(FAQ_INDEX_BIN))
         id_mapping = np.load(str(FAQ_ID_MAP_NPY))
-        # 生成提问向量
-        emb = _get_embeddings()
-        query_vec = np.array([emb.embed_query(question)], dtype=np.float32)
-        # 检索top1
+        if index.ntotal == 0:
+            return None
+        # 使用与校园知识库一致的 embedding
+        from app.knowledge.embedder import embed_query
+        query_vec = np.array([embed_query(question)], dtype=np.float32)
+        # 归一化后做余弦相似度检索（与 retriever.py 一致）
+        faiss.normalize_L2(query_vec)
         dist_arr, idx_arr = index.search(query_vec, k=1)
-        min_dist = dist_arr[0][0]
+        min_dist = float(dist_arr[0][0])
         match_faq_id = int(id_mapping[idx_arr[0][0]])
-
-        # 相似度达标，查询数据库
-        if min_dist < FAQ_SIM_THRESHOLD:
-            target_faq = db.query(FAQ).where(
+        # 归一化向量下 L2 距离 d，余弦相似度 = 1 - d^2/2
+        # 取 cos>=FAQ_SIM_THRESHOLD(0.70) 才算命中：既能召回口语改写，又对纯知识库
+        # 问题留足余量，避免把知识库问题“截胡”到一条只沾边的 FAQ。
+        cosine_sim = 1 - (min_dist ** 2) / 2
+        if cosine_sim >= FAQ_SIM_THRESHOLD:
+            target_faq = db.query(FAQ).filter(
                 FAQ.id == match_faq_id,
                 FAQ.is_active == True
             ).first()

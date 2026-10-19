@@ -5,6 +5,37 @@ from app.agents.tool_schema import TOOLS
 from app.agents.tools import TOOL_MAP
 from app.services.llm import llm_service
 
+# 纯身份/年级/校区补充词：当一句话只含这些词且无疑问词时，视为对上一轮的“延续补充”，
+# 而非新问题。典型例：2024级本科 / 研究生唐岛湾 / 本科生 / 男生宿舍。
+ENTITY_SUPPLEMENT_RE = re.compile(
+    r"(本科|研究生|硕士|博士|大一|大二|大三|大四|新生|20\d\d级|"
+    r"唐岛湾|古镇口|东营|校区|宿舍|寝室|男生|女生|本部|南门|北门)"
+)
+# 疑问/动作词：出现则不算“纯补充”
+QUESTION_RE = re.compile(
+    r"[?？]|什么|怎么|如何|哪[里个]?|多少|几|吗|呢|为什么|是否|可以|需要|能|是|申请|办理|查|找|报|交|退|换|改|补|预约|几点|在哪"
+)
+
+
+def _last_user_turn(history):
+    if not history:
+        return None
+    for msg in reversed(history):
+        if msg.get("role") == "user":
+            return msg.get("content", "")
+    return None
+
+
+def _is_pure_supplement(text: str, last_user: str | None) -> bool:
+    if not last_user:
+        return False
+    t = (text or "").strip()
+    if not t or len(t) > 24:
+        return False
+    if QUESTION_RE.search(t):
+        return False
+    return bool(ENTITY_SUPPLEMENT_RE.search(t))
+
 # 中文别名 -> 校园工具名
 TOOL_ALIASES = {
     "search_registration": "search_registration",
@@ -121,6 +152,13 @@ PLANNER_PROMPT = f"""你是中国石油大学（华东）新生校园导览助�
 3. 复杂问题可以生成多个 task（例如既问住宿又问报到）。
 4. 如果问题与校园导览、新生入学、在校生活完全无关（如闲聊、其他学校），intent 返回 general_chat，tasks 返回 []。
 5. 只输出 JSON，不要输出 markdown 代码块。
+
+## 多轮对话处理（非常重要）
+- 下面会给出“上一轮对话上下文”。如果用户当前输入只是一句简短的身份/年级/校区补充（例如“2024级本科”“研究生唐岛湾”“本科生”“男生宿舍”），
+  它**不是新问题**，而是对上一轮话题的延续补充。此时必须：沿用上一轮的话题领域与工具，把补充信息并入检索问题，
+  例如上一轮问“第二课堂要修几分”、本轮补“2024级本科”，则应按“2024级本科 第二课堂要修几分”去检索，
+  **绝不能**把它当成“报到引导/校区介绍”等新话题去路由。
+- 只有当用户提出明确的新问题（含疑问词或新动作）时，才视为新话题、重新路由。
 """
 
 
@@ -195,9 +233,29 @@ def _parse_tasks(data: dict, user_input: str) -> list[dict]:
     return tasks
 
 
-def plan(user_input: str) -> dict:
+def plan(user_input: str, history: list[dict] | None = None) -> dict:
+    last_user = _last_user_turn(history)
+    is_supplement = _is_pure_supplement(user_input, last_user)
+
+    # 纯补充句：把上一轮问题作为检索主体，把补充信息并入，保持话题不漂移
+    if is_supplement and last_user:
+        effective_input = f"{last_user}（补充信息：{user_input.strip()}）"
+        previous_question = last_user
+    else:
+        effective_input = user_input
+        previous_question = user_input
+
     prompt = PLANNER_PROMPT.replace("{tools}", _build_tool_list())
-    prompt += f"\n\n新生问题：{user_input}"
+
+    # 注入多轮上下文，帮助规划器判断是否为延续
+    if last_user:
+        ctx_lines = ["## 上一轮对话上下文"]
+        for msg in history[-4:]:
+            role = "新生" if msg.get("role") == "user" else "助手"
+            ctx_lines.append(f"{role}：{(msg.get('content') or '')[:120]}")
+        prompt += "\n\n" + "\n".join(ctx_lines)
+
+    prompt += f"\n\n新生问题：{effective_input}"
 
     response = llm_service.chat([
         {"role": "user", "content": prompt},
@@ -212,10 +270,13 @@ def plan(user_input: str) -> dict:
             "tasks": [],
         }
 
-    tasks = _parse_tasks(data, user_input)
+    tasks = _parse_tasks(data, effective_input)
 
     return {
         "intent": data.get("intent", "general_chat"),
         "confidence": data.get("confidence", "medium"),
         "tasks": tasks,
+        "is_supplement": is_supplement,
+        "effective_input": effective_input,
+        "previous_question": previous_question,
     }

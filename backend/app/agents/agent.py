@@ -8,9 +8,30 @@ from app.agents.tools import TOOL_MAP
 from app.agents.replay_cache import is_offline, lookup, save_turn
 from app.services.llm import llm_service
 
+# 记录每个会话上一轮实际使用的工具，用于多轮“纯补充句”时强制沿用上一轮话题，
+# 避免规划器被孤立的“身份/校区名词”带偏到新话题（如 T023「研究生唐岛湾」被误路由到图书馆）。
+_session_last_tool: dict[str, str] = {}
+
+# FAQ 分类 -> 检索工具 的映射，用于在 FAQ 快车道命中时也回填“上一轮工具”，
+# 否则下一轮补充句无法触发沿用逻辑（会使多轮话题漂移）。
+FAQ_CATEGORY_TO_TOOL = {
+    "overview": "search_overview",
+    "registration": "search_registration",
+    "living": "search_living",
+    "academics": "search_academics",
+    "financial_aid": "search_financial_aid",
+    "service": "search_service",
+    "safety": "search_safety",
+}
+
 SYSTEM_PROMPT = (
     "你是中国石油大学（华东）面向新生的 AI 校园导览助手。"
     "请根据参考资料，用自然、简洁、口语化的中文回答新生问题。\n\n"
+    "【校名规范（必须严格遵守）】\n"
+    "1. 本校完整名称是「中国石油大学（华东）」，回答中凡提及本校，必须完整写全这九个字，"
+    "不得省略「（华东）」三个字，也不得将校名拆开或漏字。\n"
+    "2. 可以简称「中石大」「石大」，但首次出现或作为正式名称时一律用全称"
+    "「中国石油大学（华东）」；绝不允许出现「中国石油大学（」这种残缺写法。\n\n"
     "【输出格式要求】\n"
     "1. 当用户提出具体的信息咨询（如报到、住宿、学习、资助、校园生活、办事服务、"
     "安全、学校概况等），回答必须结构清晰、层次分明：\n"
@@ -72,7 +93,7 @@ def run(message: str, session_id: str = "default") -> dict:
 
     history = conversation_memory.get(session_id)
 
-    plan_result = plan(message)
+    plan_result = plan(message, history)
     logger.info(
         "规划结果 session_id=%s intent=%s tasks=%s",
         session_id,
@@ -80,6 +101,17 @@ def run(message: str, session_id: str = "default") -> dict:
         plan_result.get("tasks"),
     )
     tasks = plan_result["tasks"]
+
+    # 多轮“纯补充句”修复：若本轮只是对上一轮的身份/年级/校区补充（如“研究生唐岛湾”），
+    # 强制沿用上一轮使用的工具与话题，防止被孤立名词误路由到新主题（如图书馆借阅）。
+    if plan_result.get("is_supplement") and session_id in _session_last_tool:
+        prev_tool = _session_last_tool[session_id]
+        if prev_tool in TOOL_MAP:
+            # 检索用上一轮“本主题问题”（干净、不被补充实体污染），
+            # 补充实体仅作为上下文留在对话历史中供生成 LLM 参考。
+            retrieval_q = plan_result.get("previous_question") or message
+            tasks = [{"tool": prev_tool, "question": retrieval_q}]
+            logger.info("多轮补充句：沿用上一轮工具=%s 检索问题=%s", prev_tool, retrieval_q)
 
     results = []
 
@@ -125,6 +157,22 @@ def run(message: str, session_id: str = "default") -> dict:
     if results:
         context = "\n\n".join(results)
 
+        # 多轮“纯补充句”处理：把“游客问题”锚定为上一轮的“本主题问题”，
+        # 补充的身份/校区名词仅作为背景修饰，且不在 prompt 中原样回显为待答项，
+        # 避免 LLM 被孤立名词（如“唐岛湾”）联想跳转到其他主题（如图书馆/借阅）。
+        supplement_guard = ""
+        if plan_result.get("is_supplement"):
+            prev_q = plan_result.get("previous_question") or message
+            supplement_guard = (
+                f"\n\n【多轮对话提示】本轮仍是在回答上一轮话题「{prev_q}」，"
+                f"用户补充的只是其身份或所在校区等背景信息，并非新问题，"
+                f"请严格围绕「{prev_q}」作答，不得跳转到图书馆、借阅、导师、地标等其他主题。"
+                f"若资料中相关内容未区分校区或学历，直接给出通用答案即可。"
+            )
+            user_question = prev_q
+        else:
+            user_question = message
+
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             *history,
@@ -132,8 +180,8 @@ def run(message: str, session_id: str = "default") -> dict:
                 "role": "user",
                 "content": (
                     f"参考资料：\n{context}\n\n"
-                    f"游客问题：{message}\n\n"
-                    f"请根据参考资料回答。"
+                    f"游客问题：{user_question}\n\n"
+                    f"请根据参考资料回答。{supplement_guard}"
                 ),
             },
         ]
@@ -154,6 +202,11 @@ def run(message: str, session_id: str = "default") -> dict:
 
     conversation_memory.add(session_id, "user", message)
     conversation_memory.add(session_id, "assistant", answer)
+
+    # 记录本轮实际使用的工具，供下一轮“纯补充句”强制沿用话题
+    if tasks:
+        _session_last_tool[session_id] = tasks[0].get("tool")
+
     elapsed = time.perf_counter() - start
     logger.info(
         "Agent 完成 session_id=%s elapsed=%.3fs",
