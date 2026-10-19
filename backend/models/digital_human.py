@@ -18,7 +18,7 @@ class DigitalHumanConfig(Base):
     model_path = Column(String(256), default="/live2d/hiyori/hiyori_free_t08.model3.json")
 
     # 语音参数
-    voice_timbre = Column(String(32), default="zhixiaomei")
+    voice_timbre = Column(String(32), default="111")  # 百度精品音库：度小萌（甜美活泼女声）
     voice_speed = Column(Float, default=1.0)       # 0.5 ~ 3.0
     voice_intonation = Column(Float, default=1.0)   # 音调
 

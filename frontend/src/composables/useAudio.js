@@ -115,7 +115,8 @@ export function useAudio() {
   // ===== 音频播放 + 口型驱动 =====
   function playAudioWithLipSync(audioBase64, live2dRef) {
     return new Promise(resolve => {
-      if (!live2dRef?.value || !audioBase64) { resolve(); return }
+      // 即使 Live2D 未加载也要正常播音（音色才会被听到）；口型驱动为可选
+      if (!audioBase64) { resolve(); return }
       stopAllAudio(live2dRef)
       const audio = new Audio()
       currentAudioEl = audio

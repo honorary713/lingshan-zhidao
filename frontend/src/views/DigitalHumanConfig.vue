@@ -80,7 +80,7 @@ const modelOptions = [
 const form = reactive({
   name: '', scenic_area: '', status: 'online',
   model_path: '',
-  voice_timbre: 'zhixiaomei', voice_speed: 1.0, voice_intonation: 1.0,
+  voice_timbre: '111', voice_speed: 1.0, voice_intonation: 1.0,
   ai_model: 'deepseek-chat', ai_temperature: 0.1, ai_max_tokens: 512,
   ai_system_prompt: '', ai_response_style: ''
 })

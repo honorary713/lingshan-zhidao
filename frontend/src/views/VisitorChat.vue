@@ -193,18 +193,10 @@ watch(chatList, async () => { await nextTick(); if(chatScroll.value) chatScroll.
 
 function stopSpeaking() { stopAllAudio(live2dRef); isSpeaking.value = false; live2dRef.value?.stopTalking(); statusText.value = '按 Enter 发送，或长按麦克风说话' }
 
-function speakWithBrowserTTS(text) {
-  if (typeof speechSynthesis === 'undefined') { isSpeaking.value = false; return }
-  speechSynthesis.cancel(); isSpeaking.value = true
-  const u = new SpeechSynthesisUtterance(text); u.lang = 'zh-CN'; u.rate = 1.0
-  u.onend = () => { isSpeaking.value = false; live2dRef.value?.stopTalking() }
-  u.onerror = () => { isSpeaking.value = false; live2dRef.value?.stopTalking() }
-  live2dRef.value?.startTalking()
-  speechSynthesis.speak(u)
-}
-
 async function fetchAudioInBackground(logId, answerText) {
-  if (!logId || logId <= 0) { speakWithBrowserTTS(answerText); return }
+  // 仅使用后端 TTS 音频（已应用后台配置的音色）；不再回退到浏览器自带语音，
+  // 否则会无视配置、听到系统/Edge 的通用嗓音。
+  if (!logId || logId <= 0) return
   for (let i = 0; i < 60; i++) {
     try {
       const res = await axios.get(`/api/chat/audio/${logId}`)
@@ -213,11 +205,10 @@ async function fetchAudioInBackground(logId, answerText) {
         await playAudioWithLipSync(res.data.audio, live2dRef)
         isSpeaking.value = false; live2dRef.value?.stopTalking()
         return
-      } else if (res.data?.status === 'failed') { speakWithBrowserTTS(answerText); return }
+      } else if (res.data?.status === 'failed') { return }
     } catch(e){/*ignore*/}
     await new Promise(r => setTimeout(r, 200))
   }
-  speakWithBrowserTTS(answerText)
 }
 
 async function sendMsg() {

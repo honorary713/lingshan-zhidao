@@ -27,7 +27,7 @@ BAIDU_DEFAULT_PER = "0"  # 度小美（百度基础音库，免费）
 
 # 旧音色名（阿里云 NLS / 通用名）→ 百度 per 编号，避免历史配置失效
 BAIDU_LEGACY_VOICE_MAP = {
-    "zhixiaomei": "0", "zhixiaoyun": "0", "zhixiaoyue": "5118",
+    "zhixiaomei": "111", "zhixiaoyun": "0", "zhixiaoyue": "5118",
     "zhixiaowei": "4105", "zhixiaoxue": "4100",
     "xiaomei": "111", "xiaoyun": "5118", "ruoxi": "4105", "sijia": "4100",
     "xiaogang": "106", "aishuo": "5003",
