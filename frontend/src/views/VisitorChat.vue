@@ -3,6 +3,10 @@
     <!-- 左侧会话边栏 -->
     <aside class="sidebar">
       <div class="sidebar-header">
+        <button class="back-home-btn" @click="goHome">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          返回首页
+        </button>
         <button class="new-chat-btn" @click="startNewSession">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           新对话
@@ -25,9 +29,6 @@
         <div v-if="sessions.length === 0" class="session-empty">暂无历史对话</div>
       </div>
 
-      <div class="sidebar-footer">
-        <button class="back-link" @click="goHome">← 返回首页</button>
-      </div>
     </aside>
 
     <!-- 右侧主区域 -->
@@ -268,7 +269,9 @@ async function startRecord() {
 
 /* 左侧边栏 */
 .sidebar{width:260px;flex-shrink:0;display:flex;flex-direction:column;background:#f1e9d9;border-right:1px solid #e4d8c2}
-.sidebar-header{padding:14px}
+.sidebar-header{padding:14px;display:flex;flex-direction:column;gap:10px}
+.back-home-btn{width:100%;height:38px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #d8c9ad;border-radius:8px;background:#efe6d3;color:#b8543f;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s}
+.back-home-btn:hover{background:#e9dcc2;border-color:#c4b394}
 .new-chat-btn{width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e4d8c2;border-radius:8px;background:#fffdf8;color:#3a3024;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s,border-color .2s}
 .new-chat-btn:hover{background:#efe6d3;border-color:#d8c9ad}
 .session-group{padding:18px 16px 6px;font-size:12px;font-weight:500;color:#8a7c68;letter-spacing:.02em}
@@ -285,9 +288,7 @@ async function startRecord() {
 .session-item:hover .session-del{opacity:1}
 .session-del:hover{background:#ddd0b6;color:#3a3024}
 .session-empty{padding:24px 10px;color:#a99a82;font-size:13px;text-align:center}
-.sidebar-footer{padding:12px 14px;border-top:1px solid #e4d8c2}
-.back-link{background:none;border:none;color:#8a7c68;font-size:13px;cursor:pointer;transition:color .2s}
-.back-link:hover{color:#3a3024}
+
 
 /* 右侧主区域 */
 .main-area{flex:1;display:flex;flex-direction:column;position:relative;background:#faf7f1;min-width:0}
